@@ -48,15 +48,21 @@ Usage:
 	}
 	runtime.GOMAXPROCS(numWorkers)
 	keyChan := make(chan Key)
+	fmt.Print("keyChan: ",keyChan)
+	println("\n")
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			err := generateKey(part, keyChan)
+			fmt.Print("err: ",err)
+			println("\n")
 			if err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
 	for key := range keyChan {
+		fmt.Print("key: ",key)
+		println("\n")
 		fmt.Printf(
 			"%s\u001b[32m%s\u001b[0m%s\n",
 			key.PrettyID[:key.Index],
@@ -69,6 +75,9 @@ Usage:
 func generateKey(part string, keyChan chan Key) error {
 	for {
 		privateKey, publicKey, err := crypto.GenerateEd25519Key(rand.Reader)
+		//fmt.Print("privateKey: ",privateKey,"\n")
+		//fmt.Print("publicKey: ",publicKey,"\n")
+		//println("\n")
 		if err != nil {
 			return err
 		}
