@@ -6,25 +6,20 @@ import (
 	"crypto/rand"
 	"io/ioutil"
 	"log"
-	"os"
-	"regexp"
 	"runtime"
-	"strings"
 	"crypto/sha256"
+	"os"
+	"strconv"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-
 var (
-	alphabet   = regexp.MustCompile("^[123456789abcdefghijklmnopqrstuvwxyz]+$")
 	numWorkers = runtime.NumCPU()
 )
 
-// Key is a vector of bits backed by a Go byte slice.
-// First byte is most significant.
-// First bit (in each byte) is least significant.
+// Key1 is a vector of bits backed by a Go byte slice.
 type Key1 []byte
 
 
@@ -35,53 +30,75 @@ type Key struct {
 }
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Printf(`
-This tool generates IPFS public and private keypair until it finds public key
-which contains required substring. Keys are stored in local directory. If you
-like one of them, you can move it to ~/.ipfs/keystore/ to use it with IPFS.
+
+	fmt.Printf(`
+This tool generates a number of IPFS public and private keypairs randomly. The number is determined by the user input.
+Keys are stored in local directory. 
+If you like one of them, you can move it to ~/.ipfs/keystore/ to use it with IPFS.
 Usage:
-	%s {part}
-		For fast results suggested length of public key part is 4-5 characters
-`, os.Args[0])
+	go run .\main.go No. (in terminal)
+`,)
+
+	if len(os.Args) < 2 {
+		// wrong
+		fmt.Print("\n! no input number found !\n")
 		os.Exit(1)
 	}
-	part := strings.ToLower(os.Args[1])
-	if !alphabet.MatchString(part) {
-		fmt.Println("{part} must match the alphabet:", alphabet.String())
-		os.Exit(2)
-	}
+
+
 	runtime.GOMAXPROCS(numWorkers)
 	keyChan := make(chan Key)
 	for i := 0; i < numWorkers; i++ {
 		go func() {
-			err := generateKey(part, keyChan)
+			err := generateKey(keyChan)
 			if err != nil {
 				log.Fatal(err)
 			}
 		}()
 	}
+
+	var distance2 *big.Int
+	var NEWcloserPeers []string
+
+
+	number, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		// wrong
+		fmt.Print(err,"\n")
+	}
+
+	/*
+	for i := 0;i< number; i++ {
+		fmt.Print("i: ",i,"\n")
+	}
+	 */
+
+
 	for key := range keyChan {
+		//fmt.Print("\n",key.PrettyID,"\n")
+		//println("\n")
 
 		fmt.Print("-----------------------------------------------------------\n")
-		fmt.Print("gonna calculate distance here:\n")
+		fmt.Print("newly generated peer ID: ",key.PrettyID,"\n")
+		println("\n")
+		//fmt.Print("calculate all distances here:\n")
 
 
 		targetCID := "bafkreicu6zojf7vrlqdn4pmhjqkknvgw7vncn5adv4kxs3o6vbe3ni5zzi"
 		fmt.Print("target CID: ",targetCID,"\n")
-		fmt.Print("newly generated peer ID: ",key.PrettyID,"\n")
-		println("\n")
 
+		// convert target CID and the newly generated peer ID to bytes
 		targetCIDByte := []byte(targetCID)
 		newPeerID := []byte(key.PrettyID)
 
+		// hash the target CID and the newly generated peer ID using SHA256
 		targetCIDByteSHA := sha256.Sum256([]byte(targetCIDByte))
 		newPeerIDSHA := sha256.Sum256([]byte(newPeerID))
 
 
-		//fmt.Print("sha256(b1): ",targetCIDByteSHA,"\n")
-		//fmt.Print("sha256(b2): ",newPeerIDSHA,"\n")
 
+		/*
+		// to calculate distance between my peer ID and the target CID
 		myCID := "12D3KooWMCWJH8AfGTJ7UNT9zyWPqdi8EuSJzjzAXfByELmiqPV8"
 		myCIDByte := []byte(myCID)
 		myCIDSHA := sha256.Sum256([]byte(myCIDByte))
@@ -89,54 +106,70 @@ Usage:
 		fmt.Print("distance between my peerID and CID: \n")
 		fmt.Print(distance0,"\n")
 		println("\n")
+		 */
 
 
+
+
+		// to calculate distance between newly generated peer ID and the target CID
 		distance1 := DistInt(targetCIDByteSHA[:],newPeerIDSHA[:])
-		fmt.Print("distance between new peerID and CID: \n")
+		fmt.Print("distance between newly generated peerID and CID: \n")
 		fmt.Print(distance1,"\n")
 		println("\n")
 
 
-		// distance between new CID and other closest nodes
-		closestNodes := []string {"12D3KooWDgzqBxyfbkXqV9Ni2ZAqAXQSz4J5HAiEk1VXuiyGVAHA",
-			"12D3KooWAb7RpmZxYZExzoBxnShrksuAGEsuG13BTHuotwPRFKyB",
+
+		// list of closest nodes of target CID
+		closestNodes := []string {
+			"12D3KooW9tFbbFUpFiPMrZfX36uTSpJcSZcrVLMqv8YM15fBbMSM",
+			"12D3KooWA6eDqwPb2h9BV3aBxaonaW7D7AZvCUcRxdG9YgFXe2B5",
 			"12D3KooWAbiMqcwudzf7WWNbZUTkvSYQw4Aj6C9tT6NDdSw8LBnQ",
-			"12D3KooWFaMLcc6G1ntbjJU9TcL9f5aBTFVZ2KnSuEt9XC86bKeL",
+			"12D3KooWCbjjNF3s8Zx2vd2vcnSViRQi4zKzLadYBFxZ7vY7X1T8",
 			"12D3KooWHNYxUc8Km6Fq3F9vEgAMttP7jfkuM2EZ26yHJ2xSJD8N",
+			"12D3KooWNT19ZdgJESkXzjEjZXQaXABQ9NeA8imNSrm8ES1phqCF",
 			"12D3KooWNNhG9Qzopb3wtytrxpZdRikMgNq6hWinVmuaWFjYCjcZ",
 			"12D3KooWJsP4v7WbNBLFri8dNMwUPfM8PdqHMa1TAYmaRMRhDJ4D",
+			"12D3KooWLRdiuW625YHLVBAoQwXf3f2UXuAkfsVfwyLv4AyyF8TN",
+			"12D3KooWLjd5sJ32CKGefNBRg5HQEgXitGYdtE4KLSWkoyy8HW8q",
+			"12D3KooWSK8dtBh7sx5BgGBmaFWshB3sr5vo1vcoi3aP927Nq6Cw",
+			"12D3KooWPbh6Qh9yk5HqneY4fpa4ydJN48dT7c4MtDhCv4k9MGhq",
+			"QmNSYxZAiJHeLdkBg38roksAR9So7Y5eojks1yjEcUtZ7i",
 			"QmSKVUFAyCddg2wDUdZVCfvqG5YCwwJTWY1HRmorebXcKG",
-			"QmY2QELCTEFwcyfSVrXTK4Jmj3KzTptWtpKLpatAPBAyxw",
+			"QmUEMvxS2e7iDrereVYc5SWPauXPyNwxcy9BXZrC1QTcHE",
 			"QmXgUGND4x9gmNn5uddq3mfnJFATcPkaHdUAs8iCjDLczB",
 			"QmcT1nzgdr8yNgbDx83WZXkxaCs7QpuvzcR3k6S1R2BFPA",
 			"QmcoEPpAg5VyB2qTve3BeJ3nc7EUd8Zjq8RjPg8jo1Q7TG",
+			"QmdnXwLrC8p1ueiq2Qya8joNvk3TVVDAut7PrikmZwubtR",
 			"12D3KooWMoivkxPw2Tm35agWAhPf3hFM6u3ZyNeQgE8Dnsbz8NmN"}
-
+		// to calculate distance between target CID and its closest nodes
 		for _, element := range closestNodes{
+			// convert CIDs to byte
 			elementByte := []byte(element)
+			// hash the CIDs
 			elementByteSHA := sha256.Sum256([]byte(elementByte))
-			distance2 := DistInt(targetCIDByteSHA[:],elementByteSHA[:])
-			fmt.Print("distance between ",key.PrettyID," and ",element,":\n")
-			fmt.Print(distance2,"\n")
-			println("\n")
+			// calculate distance between CIDs and target CID
+			distance2 = DistInt(targetCIDByteSHA[:],elementByteSHA[:])
 		}
-
-
-
-
+		// if distance between newly generated peer ID and the targetCID < distance between targetCID & Closest Nodes
+		comparing := distance1.Cmp(distance2)
+		if comparing == -1 {
+			// so distance1 is shorter
+			// means newly generated peerID is much closer
+			// save it in a list
+			NEWcloserPeers = append(NEWcloserPeers,key.PrettyID)
+			fmt.Print("new closer nodes: \n")
+			fmt.Print(NEWcloserPeers)
+			println("\n")
+			if len(NEWcloserPeers) == number {
+				os.Exit(1)
+			}
+		}
 		fmt.Print("-----------------------------------------------------------\n")
-
-		fmt.Printf(
-			"%s\u001b[32m%s\u001b[0m%s\n",
-			key.PrettyID[:key.Index],
-			key.PrettyID[key.Index:len(part)+key.Index],
-			key.PrettyID[len(part)+key.Index:])
-
 	}
 
 }
 
-func generateKey(part string, keyChan chan Key) error {
+func generateKey(keyChan chan Key) error {
 	for {
 		privateKey, publicKey, err := crypto.GenerateEd25519Key(rand.Reader)
 		if err != nil {
@@ -146,26 +179,30 @@ func generateKey(part string, keyChan chan Key) error {
 		if err != nil {
 			return err
 		}
+
 		prettyID := peerID.Pretty()
-		lowerID := strings.ToLower(prettyID)
-		idx := strings.Index(lowerID, part)
-		if idx == -1 {
-			continue
-		}
+
 		privateKeyBytes, err := privateKey.Bytes()
 		if err != nil {
 			return err
 		}
+
 		err = ioutil.WriteFile(prettyID, privateKeyBytes, 0600)
+
 		if err != nil {
 			return err
 		}
+
 		keyChan <- Key{
 			PrettyID: prettyID,
-			Index:    idx,
 		}
 	}
 }
+
+
+
+
+
 func (k Key1) NormInt() *big.Int {
 	return big.NewInt(0).SetBytes(k)
 }
